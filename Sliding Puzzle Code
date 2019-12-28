@@ -1,0 +1,110 @@
+var vals = [[1,1],[1,2],[1,3],[2,1],[2,2],[2,3],[3,1],[3,2],[3,3]];
+var clicker = 0;
+var stopInput = false;
+
+//Pauses game
+function sleep(miliseconds) {
+   var currentTime = new Date().getTime();
+   while (currentTime + miliseconds >= new Date().getTime()) {
+   }
+}
+
+//Shows final state
+for(var i = 0; i<8; i++)
+  setText("Tile"+vals[i][0]+"-"+vals[i][1],(i+1));
+
+//sleep(1000);
+
+//Sets up board
+for(var i = 0; i<8; i++)
+  setText("Tile"+vals[i][0]+"-"+vals[i][1],"");
+for(var i = 1; i<=8; i++){
+  var xTemp = randomNumber(1,3);
+  var yTemp = randomNumber(1,3);
+  var tileID = "Tile" + xTemp + "-" + yTemp;
+  while(getText(tileID)!=""){
+    xTemp = randomNumber(1,3);
+    yTemp = randomNumber(1,3);
+    tileID = "Tile" + xTemp + "-" + yTemp;
+}
+setText(tileID,i);
+}
+
+//click
+for(var j = 1; j<=3; j++)
+  for(var i = 1; i<=3; i++){
+    (function(j,i){
+      if(stopInput) return;
+      var tileID = "Tile" + j + "-" + i;
+      onEvent(tileID, "click", function(event) {
+        //console.log("Current: " + tileID);
+        clicky(tileID,j,i);
+      });
+    })(j,i);
+  }
+
+//performs functions of click
+function clicky(tileID,j,i){
+  if(getText(tileID)=="") return;
+  var arr = checkOpen(j,i);
+  if(arr[0] != -1){
+    setText("Tile"+arr[0]+"-"+arr[1], getText(tileID));
+    setText(tileID,"");
+    clicker++;
+  }
+  if(checkFinished()){
+    stopInput = true;
+    setScreen("VictoryScreen");
+    setText("counter",clicker);
+  }
+}
+
+//checks around for the open tile
+function checkOpen(xPos, yPos){
+    var tName = "Tile" + xPos + "-" + yPos;
+    if(getText(tName)== "") return;
+    tName = "Tile" + (xPos-1) + "-" + (yPos);
+    if(checkIn(xPos-1,yPos) && getText(tName)==""){ 
+     // console.log(tName);
+      return [xPos-1,yPos];
+    }
+    tName = "Tile" + (xPos+1) + "-" + (yPos);
+    if(checkIn(xPos+1,yPos) && getText(tName)==""){ 
+     //console.log(tName);
+      return [xPos+1,yPos];
+    }
+    tName = "Tile" + (xPos) + "-" + (yPos-1);
+    if(checkIn(xPos,yPos-1) && getText(tName)==""){ 
+      //console.log(tName);
+      return [xPos,yPos-1];S
+    }      
+    tName = "Tile" + (xPos) + "-" + (yPos+1);
+    if(checkIn(xPos,yPos+1) && getText(tName)==""){ 
+      //console.log(tName);
+      return [xPos,yPos+1];
+    }
+    return [-1,-1];
+}
+
+//Checks to see if in bounds
+function checkIn(xPos, yPos){
+  if(xPos>=1 && xPos<=3 && yPos>=1 && yPos<=3)
+    return true;
+  return false;
+}
+
+//Checks to see if the game is in the finished state
+function checkFinished(){
+  var counter = 1;
+  for(var i = 1; i<=3; i++)
+    for(var j = 1; j<=3; j++){
+      if(i==j && i==3) break;
+      var tileTemp = "Tile" +  i + "-" +j;
+      if(getText(tileTemp)==counter){
+        counter++;
+      }
+      else return false;
+    }
+  return true;
+}
+
