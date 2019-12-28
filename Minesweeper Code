@@ -1,0 +1,369 @@
+var imageURL = "https://i1a.adis.ws/i/flooranddecor/100105972_stockbridge-espresso-wood-plank-porcelain-tile_main?$parade230$&fmt=jpg&fmt.jpeg.interlaced=true&qlt=85";
+var flagURL = "https://i.imgur.com/JsE6GkI.png";
+var backGroundURL = "https://concordca.floorcoveringsinternational.com/wp-content/uploads/sites/53/2015/12/Wood-Tile-1.jpg";
+var bomb = "http://a1722.phobos.apple.com/us/r30/Purple3/v4/30/ec/c2/30ecc294-7cb4-3b02-6c35-3151bef5b5f7/mzl.tobbabbx.png";
+
+setStyle("CounterBox", "font-family: fantasy; border-radius: 25px;");
+setStyle("Reset", "font-family: fantasy; border-radius: 25px;");
+setStyle("Flag", "border-radius: 25px;");
+setStyle("Timer", "font-family: fantasy; border-radius: 25px;");
+
+//Records size of grid
+var gridSize;
+//number of flags placed
+var counter;
+//number of bombs
+var numberActualBombs;
+//If true, clicking will turn boxes into flags
+var placeFlag = false;
+//disables functions if won
+var disableFunctions = false;
+//Condition lost
+var lostGame;
+//Keeps timer
+var timeVal = -1;
+//To stop and start timer
+var stopTime = true;
+
+//to move around
+var xPositions = [-1,-1,-1,0,0,0,1,1,1];
+var yPositions = [1,0,-1,1,0,-1,1,0,-1];
+
+//Creates Tile Objects and Number
+setScreen("GameScreen");
+for(var i = 0; i<15; i++){
+  for(var k = 0; k<15; k++){
+      image(("box"+i+"-"+k), imageURL);
+      textLabel(("label"+i+"-"+k),"",("box"+i+"-"+k));
+      hideElement(("box"+i+"-"+k));
+      hideElement(("label"+i+"-"+k));
+      setStyle(("label"+i+"-"+k), "font-family: fantasy; font-size: 25px; color: white");
+  }
+}
+setScreen("OptionScreen");
+showElement("CounterBox");
+showElement("Reset");
+showElement("ResetBackground");
+showElement("text_area4");
+showElement("Flag");
+showElement("Timer");
+
+//Timer
+timedLoop(1000,function(){
+  if(stopTime == false){
+    timeVal++;
+    setText("Timer",updateTimer());
+  }
+});
+
+//Updates Timer
+function updateTimer(){
+  var ret = "";
+  if(div(timeVal,60)==0) ret = "00";
+  else if(div(timeVal,60)<=9) ret = "0" + div(timeVal,60);
+  else ret = div(timeVal,60);
+  ret += ":";
+  if(timeVal%60==0) ret += "00";
+  else if(timeVal%60<=9) ret += "0"+timeVal%60;
+  else ret += timeVal%60;
+  return ret;
+}
+
+function div(x,y){
+  return Math.floor(x/y);
+}
+
+//Creates and sets up initial board with bomb number thing
+var val = new Array(15);
+for(var i = 0; i<15; i++)
+  val[i] = new Array(15);
+for(var i = 0; i<15; i++)
+  for(var k = 0; k<15; k++)
+    val[i][k] = -2;
+
+//Creates and sets up visited array
+var visited = new Array(15);
+for(var i = 0; i<15; i++)
+  visited[i] = new Array(15);
+for(var i = 0; i<15; i++)
+  for(var k = 0; k<15; k++)
+    visited[i][k] = true;    
+
+//Set Difficulty
+onEvent("DifficultyPicker", "change", function(event) {
+  var temp = getText("DifficultyPicker");
+  if(!(temp=="Pick Difficulty")){
+    setScreen("GameScreen");
+    setProperty("DifficultyPicker","options",["Pick Difficulty"]);
+    setProperty("DifficultyPicker","options",["Pick Difficulty", "Easy", "Normal", "Hard"]);
+    setBoard(temp);
+    stopTime = false;
+  }
+});
+
+//Creates Board
+function setBoard(n) {
+  var i,k;
+  console.log(n);
+  if(n === "Easy"){
+    setElements(4);
+    setPosition("text_area4",17,95,285,285);
+  }else if(n === "Medium"){
+    setElements(15);
+    setPosition("text_area4",7,95,306,306);
+  }else if(n === "Hard"){
+    setElements(30);
+    setPosition("text_area4",13,95,294,294);
+  }
+  fillBoard();
+}
+
+//Helper Method to setup board
+function setElements(bombs){
+  if(bombs == 4) gridSize = 8;
+  if(bombs == 15) gridSize = 10;
+  if(bombs == 30) gridSize = 15;
+  counter = bombs;
+  numberActualBombs = bombs;
+  updateCounter(bombs);
+  for(i = 0; i<gridSize; i++){
+    for(k = 0; k<gridSize; k++){
+      showElement(("box"+i+"-"+k));
+      showElement(("label"+i+"-"+k));
+      if(bombs == 4){ 
+        setPosition(("box"+i+"-"+k), 22+30*k+5*k, 100+30*i+5*i, 30, 30);
+        setPosition(("label"+i+"-"+k), 31+30*k+5*k, 100+30*i+5*i, 30, 30);
+        setStyle(("label"+i+"-"+k), "font-size: 25px;");
+      }
+      if(bombs == 15){ 
+        setPosition(("box"+i+"-"+k), 12+25*k+5*k, 100+25*i+5*i, 25, 25);
+        setPosition(("label"+i+"-"+k), 20+25*k+5*k, 100+25*i+5*i, 25, 25);
+        setStyle(("label"+i+"-"+k), "font-size: 20px;");
+      }
+      if(bombs == 30){
+        setPosition(("box"+i+"-"+k), 18+16*k+3*k, 100+16*i+3*i, 16, 16);
+        setPosition(("label"+i+"-"+k), 23+16*k+3*k, 100+16*i+3*i, 16, 16);
+        setStyle(("label"+i+"-"+k), "font-size: 14px;");
+      }
+      val[i][k] = 0;       
+      visited[i][k] = false;
+    }
+  }
+}
+
+//Resets Board
+onEvent("Reset", "click", function(event) {
+  stopTime = true;
+  timeVal = -1;
+  lostGame = false;
+  disableFunctions = false;
+  setProperty("DifficultyPicker","options",["Pick Difficulty"]);
+  setProperty("DifficultyPicker","options",["Pick Difficulty", "Easy", "Medium", "Hard"]);
+  setScreen("OptionScreen");
+  setText("Reset","🙂");
+  for(var i = 0; i<15; i++)
+    for(var k = 0; k<15; k++){
+      hideElement("box"+i+"-"+k);
+      hideElement("label"+i+"-"+k);
+      setText("label"+i+"-"+k,"");
+      setImageURL("box"+i+"-"+k, imageURL);
+      val[i][k] = -2;
+    }
+  placeFlag = false;      
+  setProperty("Flag", "background-color",rgb(161,167,167));
+});
+
+//turn on flag placing
+onEvent("Flag", "click", function(event) {
+  if(disableFunctions) return;
+  if (placeFlag == false) {
+    placeFlag = true;
+    setProperty("Flag", "background-color",rgb(121,127,247));
+  } else {
+    placeFlag = false;
+    setProperty("Flag", "background-color",rgb(161,167,167));
+  }
+});
+
+//updates counter
+function updateCounter(counter){
+  if(counter<10)
+    setText("CounterBox","0" + counter);
+  else
+    setText("CounterBox",counter);
+}
+
+//getState is for bombs, -1 is bomb
+function getState(boxID){
+  boxID = boxID.substring(3);
+  var coords = boxID.split(" ");
+  return val[coords[0]][coords[1]];
+}
+
+//count how many around board
+function countAround(xPos, yPos){
+  var numBombs = 0;
+  for(var i = 0; i<9; i++){
+    var tempX = xPos + xPositions[i];
+    var tempY = yPos + yPositions[i];
+    try{
+      if(val[tempX][tempY]===-1)
+        numBombs++;
+    }catch(err){}
+  }
+  return numBombs;
+}
+
+//array val directly relates to board
+//function fillBoard fills board with bombs
+function fillBoard(){
+  for(var i = 0; i<counter; i++){
+    var randX = randomNumber(0,gridSize-1);
+    var randY = randomNumber(0,gridSize-1);
+    while(val[randX][randY]==-1){
+      randX = randomNumber(0,gridSize-1);
+      randY = randomNumber(0,gridSize-1);
+    }
+    val[randX][randY] = -1;
+  }
+  for(var i = 0; i<gridSize; i++){
+    for(var k = 0; k<gridSize; k++){
+      if(val[i][k] != -1)
+        val[i][k] = countAround(i,k);
+    }
+  }
+}
+
+//click
+for(var i = 0; i<15; i++){
+  for(var k = 0; k<15; k++){
+    (function(val,i,k){
+      var boxID = "box"+i+"-"+k;
+      var labelID = "label"+i+"-"+k;
+      onEvent(labelID, "click", function(event){
+        quasiClick(boxID,labelID,val,i,k);
+      });
+      onEvent(boxID, "click", function(event){
+        quasiClick(boxID,labelID,val,i,k);
+      });
+    })(val,i,k);
+  }
+}
+
+//performs functions of click 
+function quasiClick(boxID,labelID,val,i,k){
+  if(disableFunctions){ return;}
+  var currentCharacterURL = getImageURL(boxID);
+  if((placeFlag == true) && (currentCharacterURL === imageURL) && counter>0){
+    setImageURL(boxID,flagURL);
+    counter--;
+    if(val[i][k]===-1){
+      numberActualBombs--;
+      if(numberActualBombs === 0){
+        endGame(true);
+        return;
+      }
+    }
+    updateCounter(counter);
+  } else if(currentCharacterURL === flagURL){
+      setImageURL(boxID,imageURL);
+      counter++;
+      if(val[i][k]===-1)
+        numberActualBombs++;
+        updateCounter(counter);
+    }else if(placeFlag == false){
+      if(val[i][k]==-1){
+        setImageURL(boxID, bomb);
+        endGame(false);
+      } else if(val[i][k]==0) floodFill(i,k);
+      else evaluateTile(i,k);
+    }
+  if(scanState()) endGame(true);
+}
+
+//scanState is check to see if won
+function scanState(){
+  var numBombsUntagged = numberActualBombs;
+  for(var i = 0; i<gridSize; i++)
+    for(var k = 0; k<gridSize; k++){
+      var tileStatus = getImageURL("box"+i+"-"+k);
+      if(tileStatus === imageURL)
+        numBombsUntagged--;
+    }
+  if(numBombsUntagged === 0)
+    return true;
+}
+
+//floodFill
+function floodFill(xPos, yPos){
+  var currBoxID = "box"+xPos+"-"+yPos;
+  var currBox = getImageURL(currBoxID);
+  if(currBox === flagURL) return;
+  visited[xPos][yPos] = true;        
+  setImageURL(currBoxID, backGroundURL);
+  for(var i = 0; i<9; i++){
+    var xTemp = xPos+xPositions[i];
+    var yTemp = yPos+yPositions[i];
+    if(xTemp>=0 && xTemp<gridSize && yTemp>=0 && yTemp<gridSize){
+      currBoxID = "box"+xTemp+"-"+yTemp;
+      if(!visited[xTemp][yTemp] && val[xTemp][yTemp]==0){
+        floodFill(xTemp, yTemp);
+      }else if(!visited[xTemp][yTemp]){
+        currBox = getImageURL(currBoxID);
+        if(currBox === flagURL) return;
+        evaluateTile(xTemp,yTemp);
+      }
+    }
+  }
+}
+
+//hastily made temp var
+var wonState = false;
+//End Game
+function endGame(winCondition){
+  stopTime = true;
+  disableFunctions = true;
+  if(winCondition === true){
+    wonState = true;
+    updateCounter(0);
+    console.log("you won");
+    for(var i = 0; i<gridSize; i++)
+      for(var k = 0; k<gridSize; k++)
+        evaluateTile(i,k);
+    setText("Reset","😃");
+  } else {
+    lostGame = true;
+    for(var i = 0; i<gridSize; i++)
+      for(var k = 0; k<gridSize; k++)
+        evaluateTile(i,k);
+    setText("Reset","☠️");
+    console.log("you lost");
+  }
+}
+
+//function evaluate upates based on val array
+function evaluateTile(xTemp,yTemp){
+  var currBoxID = "box"+xTemp+"-"+yTemp;
+  var currLabelID = "label"+xTemp+"-"+yTemp;
+  if(lostGame && val[xTemp][yTemp] === -1)
+    setImageURL(currBoxID, bomb);
+  if(lostGame && val[xTemp][yTemp] === 0){
+    setImageURL(currBoxID, backGroundURL);
+    return;
+  }
+  if(wonState && val[xTemp][yTemp] === 0){
+    setImageURL(currBoxID, backGroundURL);
+    return;
+  }
+  
+  if(wonState && val[xTemp][yTemp] === -1 && getImageURL(currBoxID)===imageURL){
+    setImageURL(currBoxID, flagURL);
+    return;
+  }
+  if(val[xTemp][yTemp] === 0)
+    setImageURL(currBoxID, imageURL);
+  else if(val[xTemp][yTemp]>=1 && val[xTemp][yTemp]<=8){
+    setImageURL(currBoxID, backGroundURL);
+    setText(currLabelID,val[xTemp][yTemp]==-1?"":val[xTemp][yTemp]);
+  }
+}
